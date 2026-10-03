@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>8人雙敗淘汰賽模擬器</title>
+<style>
+  body { font-family: Arial, "Noto Sans TC", sans-serif; background: #f0f2f5; padding: 20px; color: #333; }
+  .container { max-width: 1050px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,.1); }
+  h1 { text-align: center; color: #1a73e8; }
+  .panel { text-align: center; background: #e8f0fe; border-radius: 8px; padding: 15px; margin-bottom: 18px; }
+  .panel button { font-size: 15px; padding: 9px 16px; margin: 4px; border: none; border-radius: 5px; cursor: pointer; background: #1a73e8; color: #fff; }
+  .panel button.secondary { background: #5f6368; }
+  .panel button:disabled { background: #aaa; cursor: not-allowed; }
+  .grid { display: grid; grid-template-columns: 2fr 1fr; gap: 18px; }
+  .card-box { border: 1px solid #ddd; border-radius: 8px; padding: 14px; background: #fafafa; }
+  .match-card { background: #fff; border-left: 5px solid #1a73e8; padding: 9px; margin-bottom: 9px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+  .match-card.gold { border-left-color: #f9ab00; background: #fff8e1; }
+  .winner { color: #188038; font-weight: bold; }
+  .loser { color: #d93025; text-decoration: line-through; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  th, td { border: 1px solid #ddd; padding: 7px; text-align: center; }
+  th { background: #f1f3f4; }
+  .bracket { margin-top: 18px; border: 1px solid #ddd; border-radius: 8px; padding: 12px; background: #fff; }
+  .bracket svg { width: 100%; height: auto; background: #fbfcff; border: 1px solid #e3e6eb; border-radius: 6px; margin-bottom: 10px; }
+  pre { background: #202124; color: #e8eaed; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 13px; }
+  .note { font-size: 13px; color: #555; text-align: center; margin-top: 10px; }
+  .legend { font-size: 13px; color: #444; margin: 6px 0 10px; }
+  .legend i { display: inline-block; width: 22px; height: 4px; vertical-align: middle; margin: 0 4px 0 10px; border-radius: 2px; }
+  .tree-head { display: flex; align-items: center; justify-content: space-between; margin: 8px 0 6px; }
+  .tree-head h4 { margin: 0; }
+  .tree-head button { font-size: 13px; padding: 6px 12px; border: none; border-radius: 5px; cursor: pointer; background: #1a73e8; color: #fff; }
+  .tree-head button:disabled { background: #aaa; cursor: not-allowed; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🏆 8人雙敗淘汰賽模擬器</h1>
+  <div class="panel">
+    <h3 id="step">Step0 準備：請抽籤分組</h3>
+    <button id="btn-next" onclick="nextStep()">開始隨機分組</button>
+    <button class="secondary" onclick="loadExample()">載入範例種子</button>
+    <button class="secondary" onclick="resetAll()">重置</button>
+    <div class="note">規則：小號必勝 min(A,B)。L2準決賽採交叉配對 W1L[0]vsW1L[3]、W1L[1]vsW1L[2]，可重現 1,4,2,6,3,5,7,8</div>
+  </div>
+  <div class="grid">
+    <div class="card-box">
+      <h2>⚔️ 對戰看板</h2>
+      <div id="board">點擊按鈕開始比賽…</div>
+      <div class="bracket">
+        <h3>🌳 樹狀分支圖（SVG連線圖）</h3>
+        <div class="legend"><i style="background:#f9ab00"></i>贏家線<i style="background:#d93025"></i>輸家/掉落線<i style="background:#9aa0a6"></i>未定</div>
+        <div class="tree-head">
+          <h4>勝部樹 Winners</h4>
+          <button id="btn-win" onclick="nextStep()">開始隨機分組</button>
+        </div>
+        <svg id="svg-win" viewBox="0 0 640 370" xmlns="http://www.w3.org/2000/svg"></svg>
+        <div class="tree-head">
+          <h4>敗部樹 Losers（爭 #3季軍/#4殿軍、#5~#8）</h4>
+          <button id="btn-lose" onclick="nextStep()">開始隨機分組</button>
+        </div>
+        <svg id="svg-lose" viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg"></svg>
+        <h3>📝 文字說明（保留）</h3>
+        <pre id="tree">尚未分組</pre>
+      </div>
+    </div>
+    <div class="card-box">
+      <h2>📊 排名紀錄</h2>
+      <table>
+        <thead><tr><th>名次</th><th>代號</th></tr></thead>
+        <tbody>
+          <tr><td>#1 冠軍</td><td id="r1">-</td></tr>
+          <tr><td>#2 亞軍</td><td id="r2">-</td></tr>
+          <tr><td>#3 季軍</td><td id="r3">-</td></tr>
+          <tr><td>#4 殿軍</td><td id="r4">-</td></tr>
+          <tr><td>#5</td><td id="r5">-</td></tr>
+          <tr><td>#6</td><td id="r6">-</td></tr>
+          <tr><td>#7</td><td id="r7">-</td></tr>
+          <tr><td>#8</td><td id="r8">-</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+<script>
+let state = 0;
+let players = [1,2,3,4,5,6,7,8];
+let W1W=[], W1L=[], W2W=[], W2L=[];
+let S1W=0,S1L=0,S2W=0,S2L=0;
+const $ = id => document.getElementById(id);
+const play = (a,b) => a < b ? {win:a,lose:b} : {win:b,lose:a};
+const mc = t => `<div class='match-card'>${t}</div>`;
+const NS = 'http://www.w3.org/2000/svg';
+
+function setRank(i,v){ $('r'+i).innerText = v; }
+function txt(v){ return (v===0||v===undefined||v===null||v==='?') ? '?' : String(v); }
+function syncBtns(label, disabled){
+  for(const id of ['btn-next','btn-win','btn-lose']){
+    const b = $(id);
+    if(label!==undefined) b.innerText = label;
+    b.disabled = !!disabled;
+  }
+}
+
+/* --- SVG helpers --- */
+function el(tag, attrs){
+  const e = document.createElementNS(NS, tag);
+  for(const k in attrs) e.setAttribute(k, attrs[k]);
+  return e;
+}
+function node(svg, x, y, w, h, label, kind){
+  // kind: win(gold) lose(red) pending(gray) champ(gold bold) normal(white)
+  let fill='#fff', stroke='#9aa0a6', fw='normal';
+  if(kind==='win'){ fill='#e6f4ea'; stroke='#188038'; fw='bold'; }
+  if(kind==='lose'){ fill='#fce8e6'; stroke='#d93025'; }
+  if(kind==='champ'){ fill='#fff8e1'; stroke='#f9ab00'; fw='bold'; }
+  if(kind==='normal'){ fill='#fff'; stroke='#5f6368'; }
+  const g = el('g', {});
+  g.appendChild(el('rect',{x,y,width:w,height:h,rx:5,fill,stroke,'stroke-width': kind==='champ'?2.5:1.5}));
+  const t = el('text',{x:x+w/2, y:y+h/2+5,'text-anchor':'middle','font-size':13,'font-weight':fw, fill:'#202124'});
+  t.textContent = label;
+  g.appendChild(t);
+  svg.appendChild(g);
+}
+function edge(svg, x1, y1, x2, y2, kind){
+  // orthogonal elbow connector
+  const mx = (x1+x2)/2;
+  let stroke='#9aa0a6', w=1.5, dash='';
+  if(kind==='win'){ stroke='#f9ab00'; w=3; }
+  if(kind==='lose'){ stroke='#d93025'; w=2; dash='5,3'; }
+  const d = `M ${x1} ${y1} L ${mx} ${y1} L ${mx} ${y2} L ${x2} ${y2}`;
+  const p = el('path',{d,fill:'none',stroke,'stroke-width':w});
+  if(dash) p.setAttribute('stroke-dasharray', dash);
+  svg.appendChild(p);
+}
+function title(svg, x, y, s){
+  const t = el('text',{x,y,'font-size':12,fill:'#5f6368'});
+  t.textContent = s;
+  svg.appendChild(t);
+}
+
+function renderWinSVG(){
+  const svg = $('svg-win');
+  svg.innerHTML = '';
+  const decided_W1 = W1W.length===4, decided_W2 = W2W.length===2;
+  const decided_WF = $('r1').innerText!=='-';
+  const qy = [20,50,110,140,200,230,290,320];
+  const qx=10, qw=55, qh=26;
+  const w1y=[35,125,215,305], w1x=150;
+  const w2y=[80,260], w2x=290;
+  const cx=430, cw=95;
+  // QF nodes
+  for(let i=0;i<8;i++){
+    let kind='normal', label='?';
+    if(state>=1){ label = txt(players[i]); kind='normal'; }
+    if(decided_W1){
+      const mi = Math.floor(i/2);
+      const isWin = (players[i]===W1W[mi]);
+      kind = isWin?'win':'lose';
+    }
+    node(svg, qx, qy[i], qw, qh, label, state===0?'pending':kind);
+  }
+  title(svg, qx, 14, 'QF初賽');
+  // W1W nodes
+  for(let i=0;i<4;i++){
+    const label = decided_W1? txt(W1W[i]) : '?';
+    node(svg, w1x, w1y[i], qw, qh, label, !decided_W1?'pending':'win');
+  }
+  title(svg, w1x, 28, 'W1勝');
+  // W2W nodes (finalists)
+  for(let i=0;i<2;i++){
+    const label = decided_W2? txt(W2W[i]) : '?';
+    node(svg, w2x, w2y[i], qw, qh, label, !decided_W2?'pending':'win');
+  }
+  title(svg, w2x, 72, '決賽者');
+  // champ / runner
+  node(svg, cx, 150, cw, 32, '👑#1:'+($('r1').innerText==='-'?'?':$('r1').innerText), decided_WF?'champ':'pending');
+  node(svg, cx, 190, cw, 32, '#2:'+($('r2').innerText==='-'?'?':$('r2').innerText), decided_WF?'normal':'pending');
+  // edges QF->W1
+  for(let m=0;m<4;m++){
+    for(let k=0;k<2;k++){
+      const i=m*2+k;
+      const x1=qx+qw, y1=qy[i]+qh/2, x2=w1x, y2=w1y[m]+qh/2;
+      let kind='pending';
+      if(decided_W1) kind = (players[i]===W1W[m])?'win':'lose';
+      edge(svg,x1,y1,x2,y2,kind);
+    }
+  }
+  // edges W1->W2
+  const pairs=[[0,1,0],[2,3,1]];
+  for(const [a,b,t] of pairs){
+    for(const s of [a,b]){
+      const x1=w1x+qw, y1=w1y[s]+qh/2, x2=w2x, y2=w2y[t]+qh/2;
+      let kind='pending';
+      if(decided_W2){
+        const src = W1W[s];
+        kind = (src===W2W[t])?'win':'lose';
+      }
+      edge(svg,x1,y1,x2,y2,kind);
+    }
+  }
+  // edges W2->champ
+  for(let i=0;i<2;i++){
+    if(!decided_W2) { edge(svg, w2x+qw, w2y[i]+qh/2, cx, 166, 'pending'); continue; }
+    const src=W2W[i];
+    const isChamp = decided_WF && (src===$('r1').innerText || +src===+$('r1').innerText);
+    edge(svg, w2x+qw, w2y[i]+qh/2, cx, i===0?166:206, !decided_WF?'pending':(isChamp?'win':'lose'));
+  }
+}
+
+function renderLoseSVG(){
+  const svg = $('svg-lose');
+  svg.innerHTML='';
+  const r3=$('r3').innerText, r4=$('r4').innerText, r5=$('r5').innerText,
+        r6=$('r6').innerText, r7=$('r7').innerText, r8=$('r8').innerText;
+  const hasW2L = W2L.length===2;
+  const hasSemi = (S1W!==0);
+  // L1 爭#3季軍#4殿軍
+  title(svg,10,14,'L1 爭#3季軍/#4殿軍');
+  node(svg,10,20,55,26, hasW2L?txt(W2L[0]): '?', hasW2L?(txt(W2L[0])===r3?'win':'lose'):'pending');
+  node(svg,10,50,55,26, hasW2L?txt(W2L[1]): '?', hasW2L?(txt(W2L[1])===r3?'win':'lose'):'pending');
+  edge(svg,65,33,130,33, r3==='-'?'pending':'win');
+  edge(svg,65,63,130,63, r3==='-'?'pending':'lose');
+  node(svg,130,20,75,26,'#3:'+(r3==='-'?'?':r3), r3==='-'?'pending':'champ');
+  node(svg,130,50,75,26,'#4:'+(r4==='-'?'?':r4), r4==='-'?'pending':'normal');
+  // L2 準決賽
+  title(svg,270,14,'L2 準決賽(交叉)→爭#5/#6');
+  const w1l = W1L.length===4?W1L:['?','?','?','?'];
+  const semiY=[20,50,110,140], semiX=270;
+  const order=[0,3,1,2]; // display order: [0]vs[3], [1]vs[2]
+  const labels=[txt(w1l[0]),txt(w1l[3]),txt(w1l[1]),txt(w1l[2])];
+  for(let i=0;i<4;i++){
+    let kind='pending';
+    if(hasSemi){
+      const sW=[S1W,S1W,S2W,S2W][i], sL=[S1L,S1L,S2L,S2L][i];
+      // determine per box: first of each pair
+      const val = labels[i];
+      kind = (val==String([S1W,S1L,S2W,S2L][i])) ? ([S1W,S2W].includes(+val)?'win':'lose') : 'pending';
+      // simpler: winner boxes win, loser boxes lose
+      if(i===0||i===2) kind = (val==String(i===0?S1W:S2W))?'win':'lose';
+      else kind = (val==String(i===1?S1L:S2L))?'win':'lose';
+      if(W1L.length!==4) kind='pending';
+    }
+    if(W1L.length!==4) kind='pending';
+    node(svg,semiX,semiY[i],55,26, W1L.length===4?labels[i]:'?', kind);
+  }
+  node(svg,380,35,55,26, hasSemi?txt(S1W):'?', hasSemi?'win':'pending');
+  node(svg,380,125,55,26, hasSemi?txt(S2W):'?', hasSemi?'win':'pending');
+  edge(svg,325,33,380,44, hasSemi?'win':'pending');
+  edge(svg,325,63,380,52, hasSemi?'lose':'pending');
+  edge(svg,325,123,380,134, hasSemi?'win':'pending');
+  edge(svg,325,153,380,142, hasSemi?'lose':'pending');
+  edge(svg,435,48,490,68, r5==='-'?'pending':'win');
+  edge(svg,435,138,490,98, r5==='-'?'pending':'lose');
+  node(svg,490,55,70,26,'#5:'+(r5==='-'?'?':r5), r5==='-'?'pending':'champ');
+  node(svg,490,85,70,26,'#6:'+(r6==='-'?'?':r6), r6==='-'?'pending':'normal');
+  // L3 爭#7#8
+  title(svg,270,194,'L3 爭#7/#8');
+  node(svg,270,200,55,26, hasSemi?txt(S1L):'?', hasSemi?(txt(S1L)===r7?'win':'lose'):'pending');
+  node(svg,270,230,55,26, hasSemi?txt(S2L):'?', hasSemi?(txt(S2L)===r7?'win':'lose'):'pending');
+  edge(svg,325,213,390,213, r7==='-'?'pending':'win');
+  edge(svg,325,243,390,243, r7==='-'?'pending':'lose');
+  node(svg,390,200,70,26,'#7:'+(r7==='-'?'?':r7), r7==='-'?'pending':'champ');
+  node(svg,390,230,70,26,'#8:'+(r8==='-'?'?':r8), r8==='-'?'pending':'normal');
+}
+
+function updateTree(){
+  if(state===0){ $('tree').innerText='尚未分組'; }
+  else{
+    let t = `初始: [${players[0]} vs ${players[1]}] [${players[2]} vs ${players[3]}] [${players[4]} vs ${players[5]}] [${players[6]} vs ${players[7]}]\n`;
+    if(W1W.length) t += `W1勝: ${W1W} | W1敗: ${W1L}\n`;
+    if(W2W.length) t += `W2決賽: ${W2W} | 掉落爭季殿: ${W2L}\n`;
+    if($('r1').innerText!=='-') t += `#1冠軍=${$('r1').innerText} #2亞軍=${$('r2').innerText}（總決賽先出）\n`;
+    if($('r3').innerText!=='-') t += `#3季軍=${$('r3').innerText} #4殿軍=${$('r4').innerText}\n`;
+    if($('r5').innerText!=='-') t += `#5=${$('r5').innerText} #6=${$('r6').innerText} (準決賽 ${W1L[0]}vs${W1L[3]}→${S1W}/${S1L}, ${W1L[1]}vs${W1L[2]}→${S2W}/${S2L})\n`;
+    if($('r7').innerText!=='-') t += `#7=${$('r7').innerText} #8=${$('r8').innerText}\n`;
+    $('tree').innerText = t;
+  }
+  renderWinSVG();
+  renderLoseSVG();
+}
+function resetAll(){
+  state=0; players=[1,2,3,4,5,6,7,8]; W1W=[];W1L=[];W2W=[];W2L=[]; S1W=S1L=S2W=S2L=0;
+  for(let i=1;i<=8;i++) setRank(i,'-');
+  $('board').innerHTML='點擊按鈕開始比賽…';
+  $('step').innerText='Step0 準備：請抽籤分組';
+  syncBtns('開始隨機分組', false);
+  updateTree();
+}
+function loadExample(){
+  resetAll();
+  players=[1,3,5,2,4,8,6,7];
+  $('board').innerHTML = `<h3>範例配對載入：</h3>` +
+    mc(`對決1: ${players[0]} vs ${players[1]}`) + mc(`對決2: ${players[2]} vs ${players[3]}`) +
+    mc(`對決3: ${players[4]} vs ${players[5]}`) + mc(`對決4: ${players[6]} vs ${players[7]}`);
+  $('step').innerText='分組完成（範例），準備 W1';
+  syncBtns('執行 勝部第一輪 W1', false);
+  state=1; updateTree();
+}
+function nextStep(){
+  const board=$('board'), step=$('step');
+  if(state===0){
+    players.sort(()=>Math.random()-0.5);
+    board.innerHTML = `<h3>隨機配對完成：</h3>` +
+      mc(`對決1: ${players[0]} vs ${players[1]}`) + mc(`對決2: ${players[2]} vs ${players[3]}`) +
+      mc(`對決3: ${players[4]} vs ${players[5]}`) + mc(`對決4: ${players[6]} vs ${players[7]}`);
+    step.innerText='分組完成，準備 W1'; syncBtns('執行 勝部第一輪 W1', false); state=1;
+  } else if(state===1){
+    const rs=[0,2,4,6].map(i=>play(players[i],players[i+1]));
+    W1W=rs.map(r=>r.win); W1L=rs.map(r=>r.lose);
+    board.innerHTML = `<h3>W1 結果：</h3>` + rs.map(r=>
+      mc(`<span class='winner'>${r.win}勝</span> vs <span class='loser'>${r.lose}敗</span>`)).join('');
+    step.innerText='W1結束，準備 W2'; syncBtns('執行 勝部第二輪 W2', false); state=2;
+  } else if(state===2){
+    const a=play(W1W[0],W1W[1]), b=play(W1W[2],W1W[3]);
+    W2W=[a.win,b.win]; W2L=[a.lose,b.lose];
+    board.innerHTML = `<h3>W2 結果：</h3>` +
+      mc(`<span class='winner'>${a.win}晉級總決賽</span> vs <span class='loser'>${a.lose}掉落爭季殿</span>`) +
+      mc(`<span class='winner'>${b.win}晉級總決賽</span> vs <span class='loser'>${b.lose}掉落爭季殿</span>`);
+    step.innerText='W2結束，先打總決賽爭#1冠軍#2亞軍'; syncBtns('執行 總決賽 (爭#1冠軍#2亞軍)', false); state=3;
+  } else if(state===3){
+    const r=play(W2W[0],W2W[1]);
+    setRank(1,r.win); setRank(2,r.lose);
+    board.innerHTML = `<h3>🏆 總決賽先出：</h3><div class='match-card gold'>👑冠軍 ${r.win}(#1) / 🥈亞軍 ${r.lose}(#2)</div>`;
+    step.innerText='#1冠軍#2亞軍確定，準備 L1'; syncBtns('執行 敗部第一次賽 (爭#3季軍#4殿軍)', false); state=4;
+  } else if(state===4){
+    const r=play(W2L[0],W2L[1]);
+    setRank(3,r.win); setRank(4,r.lose);
+    board.innerHTML = `<h3>L1 季軍殿軍賽：</h3>` + mc(`<span class='winner'>${r.win}(#3季軍)</span> vs <span class='loser'>${r.lose}(#4殿軍)</span>`);
+    step.innerText='#3季軍#4殿軍確定，準備 L2'; syncBtns('執行 敗部第二次賽 (爭#5#6)', false); state=5;
+  } else if(state===5){
+    const s1=play(W1L[0],W1L[3]), s2=play(W1L[1],W1L[2]);
+    S1W=s1.win;S1L=s1.lose;S2W=s2.win;S2L=s2.lose;
+    const f=play(S1W,S2W);
+    setRank(5,f.win); setRank(6,f.lose);
+    board.innerHTML = `<h3>L2 結果：</h3>` +
+      mc(`準決賽1 ${W1L[0]}vs${W1L[3]} → ${S1W}勝/${S1L}待定`) +
+      mc(`準決賽2 ${W1L[1]}vs${W1L[2]} → ${S2W}勝/${S2L}待定`) +
+      mc(`決賽 <span class='winner'>${f.win}(#5)</span> vs <span class='loser'>${f.lose}(#6)</span>`);
+    step.innerText='#5#6確定，準備 L3'; syncBtns('執行 敗部第三次賽 (爭#7#8)', false); state=6;
+  } else if(state===6){
+    const r=play(S1L,S2L);
+    setRank(7,r.win); setRank(8,r.lose);
+    board.innerHTML = `<h3>🎉 完賽！</h3><div class='match-card gold'>👑冠軍 ${$('r1').innerText} / 🥈亞軍 ${$('r2').innerText} / 🥉季軍 ${$('r3').innerText} / 殿軍 ${$('r4').innerText} / #5 ${$('r5').innerText} / #6 ${$('r6').innerText} / #7 ${r.win} / #8 ${r.lose}</div>`;
+    step.innerText='完賽！總決賽已先出，後續排名全定'; syncBtns('比賽結束', true); state=7;
+  }
+  updateTree();
+}
+updateTree();
+</script>
+</body>
+</html>
