@@ -22,6 +22,8 @@
 
 ## 執行方式
 
+線上網頁直接玩：https://davioyao.github.io/Game_Proj/game.html
+
 macOS / Windows 通用：雙擊 game.html 檔案。系統會自動使用預設的網頁瀏覽器（如 Google Chrome、Safari 或 Edge）將它開啟並執行。
 
 操作：`開始隨機分組` / `載入範例種子` → 依序點擊執行按鍵
